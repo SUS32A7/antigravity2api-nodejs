@@ -56,6 +56,20 @@ const loginAttempts = new Map(); // IP -> { count, lastAttempt, blockedUntil }
 const MAX_LOGIN_ATTEMPTS = 5;
 const BLOCK_DURATION = 5 * 60 * 1000; // 5分钟
 const ATTEMPT_WINDOW = 15 * 60 * 1000; // 15分钟窗口
+const LOGIN_CLEANUP_INTERVAL = 10 * 60 * 1000; // 10分钟清理一次
+
+// 定期清理过期的登录尝试记录（防止内存泄漏）
+const loginCleanupTimer = setInterval(() => {
+  const now = Date.now();
+  for (const [ip, attempt] of loginAttempts.entries()) {
+    // 如果最后尝试时间超过窗口期，且没有被封禁（或封禁已过期），删除记录
+    if (now - attempt.lastAttempt > ATTEMPT_WINDOW &&
+        (!attempt.blockedUntil || now > attempt.blockedUntil)) {
+      loginAttempts.delete(ip);
+    }
+  }
+}, LOGIN_CLEANUP_INTERVAL);
+loginCleanupTimer.unref(); // 不阻止进程退出
 
 function getClientIP(req) {
   return req.headers['x-forwarded-for']?.split(',')[0]?.trim() ||

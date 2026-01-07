@@ -15,9 +15,6 @@ const CACHE_DIR = path.join(process.cwd(), 'data', 'signature-cache');
 // 上限：每个模型保留的签名数量
 const MAX_SIGNATURES_PER_MODEL = 3;
 
-// 内存中的索引缓存（避免频繁读取文件列表）
-const modelIndexCache = new Map(); // model -> { signatures: [], lastModified }
-
 /**
  * 确保缓存目录存在
  */
@@ -285,7 +282,6 @@ export function clearThoughtSignatureCaches() {
         }
       }
     }
-    modelIndexCache.clear();
     log.info('签名缓存已清除');
   } catch (e) {
     log.warn('清除签名缓存失败:', e?.message || e);

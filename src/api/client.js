@@ -82,7 +82,8 @@ let modelListCache = null;
 let modelListCacheTime = 0;
 
 // 默认模型列表（当 API 请求失败时使用）
-const DEFAULT_MODELS = [
+// 使用 Object.freeze 防止意外修改，并帮助 V8 优化
+const DEFAULT_MODELS = Object.freeze([
   'claude-opus-4-5',
   'claude-opus-4-5-thinking',
   'claude-sonnet-4-5-thinking',
@@ -100,7 +101,7 @@ const DEFAULT_MODELS = [
   'rev19-uic3-1p',
   'gpt-oss-120b-medium',
   'chat_23310'
-];
+]);
 
 // 生成默认模型列表响应
 function getDefaultModelList() {

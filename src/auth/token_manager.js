@@ -291,6 +291,8 @@ class TokenManager {
     log.warn(`禁用token ...${token.access_token.slice(-8)}`)
     token.enable = false;
     this.saveToFile();
+    // 清理该 token 的请求计数（避免内存泄漏）
+    this.tokenRequestCounts.delete(token.refresh_token);
     this.tokens = this.tokens.filter(t => t.refresh_token !== token.refresh_token);
     this.currentIndex = this.currentIndex % Math.max(this.tokens.length, 1);
     // tokens 结构发生变化时，重建额度耗尽策略下的可用列表
