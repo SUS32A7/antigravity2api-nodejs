@@ -38,9 +38,14 @@
 
 ### 方式一：一键部署脚本（推荐）
 
-**Windows**：
+**Windows (cmd.exe)**：
 ```bash
 curl -O https://raw.githubusercontent.com/liuw1535/antigravity2api-nodejs/main/setup.bat && setup.bat
+```
+
+**Windows (PowerShell)**：
+```powershell
+IwR -Uri https://raw.githubusercontent.com/liuw1535/antigravity2api-nodejs/main/setup.bat -OutFile setup.bat; .\setup.bat
 ```
 
 **Linux/macOS**：
