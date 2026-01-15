@@ -10,7 +10,8 @@ const colors = {
   yellow: '\x1b[33m',
   red: '\x1b[31m',
   cyan: '\x1b[36m',
-  gray: '\x1b[90m'
+  gray: '\x1b[90m',
+  blue: '\x1b[34m'
 };
 
 /**
@@ -31,7 +32,7 @@ function formatArgs(args) {
 
 function logMessage(level, ...args) {
   const timestamp = new Date().toLocaleTimeString('zh-CN', { hour12: false });
-  const color = { info: colors.green, warn: colors.yellow, error: colors.red }[level];
+  const color = { info: colors.green, warn: colors.yellow, error: colors.red, debug: colors.blue }[level];
   const message = formatArgs(args);
 
   // 输出到控制台
@@ -57,6 +58,7 @@ export const log = {
   info: (...args) => logMessage('info', ...args),
   warn: (...args) => logMessage('warn', ...args),
   error: (...args) => logMessage('error', ...args),
+  debug: (...args) => logMessage('debug', ...args),
   request: logRequest,
   // API 方法（委托给 logWsServer）
   getLogs: (options) => logWsServer.getLogs(options),

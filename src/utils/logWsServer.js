@@ -279,7 +279,7 @@ class LogWebSocketServer {
      * 获取统计
      */
     getLogStats() {
-        const stats = { total: 0, info: 0, warn: 0, error: 0, request: 0 };
+        const stats = { total: 0, info: 0, warn: 0, error: 0, request: 0, debug: 0 };
 
         for (const log of this.logStore) {
             if (this._isSeparator(log.message)) continue;

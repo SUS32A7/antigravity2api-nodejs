@@ -11,7 +11,7 @@ let logsState = {
     maxLogs: 500, // 最大保留日志条数，防止内存无限增长
     autoRefresh: false,
     autoRefreshTimer: null,
-    stats: { total: 0, info: 0, warn: 0, error: 0, request: 0 },
+    stats: { total: 0, info: 0, warn: 0, error: 0, request: 0, debug: 0 },
     // WebSocket 相关
     ws: null,
     wsConnected: false,
@@ -100,7 +100,7 @@ async function clearLogs() {
             showToast('日志已清空', 'success');
             logsState.logs = [];
             logsState.total = 0;
-            logsState.stats = { total: 0, info: 0, warn: 0, error: 0, request: 0 };
+            logsState.stats = { total: 0, info: 0, warn: 0, error: 0, request: 0, debug: 0 };
             renderLogs();
             renderLogStats();
         } else {
@@ -173,6 +173,10 @@ function renderLogStats() {
         <div class="log-stat-item info clickable ${currentLevel === 'info' ? 'active' : ''}" onclick="filterLogLevel('info')">
             <span class="log-stat-num">${logsState.stats.info}</span>
             <span class="log-stat-label">信息</span>
+        </div>
+        <div class="log-stat-item debug clickable ${currentLevel === 'debug' ? 'active' : ''}" onclick="filterLogLevel('debug')">
+            <span class="log-stat-num">${logsState.stats.debug}</span>
+            <span class="log-stat-label">调试</span>
         </div>
         <div class="log-stat-item warn clickable ${currentLevel === 'warn' ? 'active' : ''}" onclick="filterLogLevel('warn')">
             <span class="log-stat-num">${logsState.stats.warn}</span>
@@ -259,7 +263,8 @@ function renderLogs() {
             info: 'ℹ️',
             warn: '⚠️',
             error: '❌',
-            request: '🌐'
+            request: '🌐',
+            debug: '🔍'
         }[log.level] || '📝';
 
         const time = new Date(log.timestamp).toLocaleString('zh-CN', {
@@ -419,7 +424,7 @@ function handleWsMessage(data) {
             // 日志被清空
             logsState.logs = [];
             logsState.total = 0;
-            logsState.stats = { total: 0, info: 0, warn: 0, error: 0, request: 0 };
+            logsState.stats = { total: 0, info: 0, warn: 0, error: 0, request: 0, debug: 0 };
             renderLogs();
             renderLogStats();
             break;
@@ -475,7 +480,8 @@ function appendLogToDOM(log) {
         info: 'ℹ️',
         warn: '⚠️',
         error: '❌',
-        request: '🌐'
+        request: '🌐',
+        debug: '🔍'
     }[log.level] || '📝';
 
     const time = new Date(log.timestamp).toLocaleString('zh-CN', {
@@ -514,7 +520,7 @@ function appendLogToDOM(log) {
 
 // 更新统计
 function updateStats() {
-    const stats = { total: 0, info: 0, warn: 0, error: 0, request: 0 };
+    const stats = { total: 0, info: 0, warn: 0, error: 0, request: 0, debug: 0 };
     for (const log of logsState.logs) {
         if (isSeparatorLine(log.message)) continue;
         stats.total++;

@@ -152,7 +152,7 @@ class OAuthManager {
    * @param {number} port - 回调端口
    */
   async authenticateGeminiCli(code, port) {
-    return this.authenticate(code, port, 'geminicli');
+    return this.authenticate(code, port, 'GeminiCLI');
   }
 }
 
