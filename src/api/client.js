@@ -6,7 +6,9 @@ import logger from '../utils/logger.js';
 import memoryManager from '../utils/memoryManager.js';
 import { httpRequest, httpStreamRequest } from '../utils/httpClient.js';
 import { generateTrajectorybody } from '../utils/trajectory.js';
-import { MODEL_LIST_CACHE_TTL } from '../constants/index.js';
+import { buildRecordCodeAssistMetricsBody } from '../utils/recordCodeAssistMetrics.js';
+import { createTelemetryBatch, serializeTelemetryBatch} from "../utils/createTelemetry.js"
+import { MODEL_LIST_CACHE_TTL, QA_PAIRS } from '../constants/index.js';
 import { createApiError } from '../utils/errors.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -28,6 +30,7 @@ import { getUpstreamStatus, readUpstreamErrorBody, isCallerDoesNotHavePermission
 import { createStreamLineProcessor } from './streamLineProcessor.js';
 import { runAxiosSseStream, runNativeSseStream, postJsonAndParse } from './geminiTransport.js';
 import { parseGeminiCandidateParts, toOpenAIUsage } from './geminiResponseParser.js';
+import { randomBytes, randomUUID } from 'crypto';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -147,7 +150,14 @@ function buildRequesterConfig(headers, body = null) {
     timeout_ms: config.timeout,
     proxy: config.proxy
   };
-  if (body !== null) reqConfig.body = JSON.stringify(body);
+  if (body !== null) {
+    // 判断是否为二进制数据
+    if (Buffer.isBuffer(body) || body instanceof Uint8Array) {
+      reqConfig.body = body;  // 直接传递
+    } else {
+      reqConfig.body = JSON.stringify(body);  // JSON 对象才序列化
+    }
+  }
   return reqConfig;
 }
 
@@ -176,10 +186,11 @@ async function handleApiError(error, token, dumpId = null) {
 // ==================== 导出函数 ====================
 
 export async function generateAssistantResponse(requestBody, token, callback) {
-
+  const trajectoryId = requestBody.requestId.split('/')[2];
   const headers = buildHeaders(token);
   const dumpId = isDebugDumpEnabled() ? createDumpId('stream') : null;
   const streamCollector = dumpId ? createStreamCollector() : null;
+  let num = Math.floor(Math.random() * QA_PAIRS.length);
   if (dumpId) {
     await dumpFinalRequest(dumpId, requestBody);
   }
@@ -219,7 +230,9 @@ export async function generateAssistantResponse(requestBody, token, callback) {
     if (dumpId) {
       await dumpStreamResponse(dumpId, streamCollector);
     }
-    sendRecordTrajectoryAnalytics(token).catch(err => logger.warn('发送轨迹分析失败:', err.message));
+    sendRecordCodeAssistMetrics(token,trajectoryId).catch(err => logger.warn('发送RecordCodeAssistMetrics失败:', err.message));
+    sendRecordTrajectoryAnalytics(token,num,trajectoryId).catch(err => logger.warn('发送轨迹分析失败:', err.message));
+    //sendLog(token,num,trajectoryId).catch(err => logger.warn('发送log失败:', err.message))
   } catch (error) {
     try { processor.close(); } catch { }
     await handleApiError(error, token, dumpId);
@@ -332,9 +345,11 @@ export async function getModelsWithQuotas(token) {
 }
 
 export async function generateAssistantResponseNoStream(requestBody, token) {
-
+  const trajectoryId = requestBody.requestId.split('/')[2];
   const headers = buildHeaders(token);
   const dumpId = isDebugDumpEnabled() ? createDumpId('no_stream') : null;
+  let num = Math.floor(Math.random() * QA_PAIRS.length);
+
   if (dumpId) await dumpFinalRequest(dumpId, requestBody);
   let data;
   try {
@@ -350,7 +365,10 @@ export async function generateAssistantResponseNoStream(requestBody, token) {
       dumpFinalRawResponse,
       rawFormat: 'json'
     });
-    sendRecordTrajectoryAnalytics(token).catch(err => logger.warn('发送轨迹分析失败:', err.message));
+    sendRecordCodeAssistMetrics(token,trajectoryId).catch(err => logger.warn('发送RecordCodeAssistMetrics失败:', err.message));
+    sendRecordTrajectoryAnalytics(token,num,trajectoryId).catch(err => logger.warn('发送轨迹分析失败:', err.message));
+
+    //sendLog(token,num).catch(err => logger.warn('发送log失败:', err.message))
   } catch (error) {
     await handleApiError(error, token, dumpId);
   }
@@ -405,8 +423,11 @@ export async function generateAssistantResponseNoStream(requestBody, token) {
 }
 
 export async function generateImageForSD(requestBody, token) {
+  const trajectoryId = requestBody.requestId.split('/')[2];
   const headers = buildHeaders(token);
   let data;
+  let num = Math.floor(Math.random() * QA_PAIRS.length);
+
   //console.log(JSON.stringify(requestBody,null,2));
 
   try {
@@ -417,7 +438,9 @@ export async function generateImageForSD(requestBody, token) {
         headers,
         data: requestBody
       })).data;
-      sendRecordTrajectoryAnalytics(token).catch(err => logger.warn('发送轨迹分析失败:', err.message));
+    sendRecordCodeAssistMetrics(token,trajectoryId).catch(err => logger.warn('发送RecordCodeAssistMetrics失败:', err.message));
+    sendRecordTrajectoryAnalytics(token,num,trajectoryId).catch(err => logger.warn('发送轨迹分析失败:', err.message));
+    //sendLog(token,num).catch(err => logger.warn('发送log失败:', err.message));
     } else {
       const response = await requester.antigravity_fetch(config.api.noStreamUrl, buildRequesterConfig(headers, requestBody));
       if (response.status !== 200) {
@@ -425,7 +448,9 @@ export async function generateImageForSD(requestBody, token) {
         throw { status: response.status, message: errorBody };
       }
       data = await response.json();
-      sendRecordTrajectoryAnalytics(token).catch(err => logger.warn('发送轨迹分析失败:', err.message));
+      sendRecordCodeAssistMetrics(token,trajectoryId).catch(err => logger.warn('发送RecordCodeAssistMetrics失败:', err.message));
+      sendRecordTrajectoryAnalytics(token,num,trajectoryId).catch(err => logger.warn('发送轨迹分析失败:', err.message));
+      //sendLog(token,num).catch(err => logger.warn('发送log失败:', err.message));
     }
   } catch (error) {
     await handleApiError(error, token);
@@ -437,8 +462,8 @@ export async function generateImageForSD(requestBody, token) {
   return images;
 }
 
-export async function sendRecordTrajectoryAnalytics(token){
-  const trajectorybody = generateTrajectorybody();
+export async function sendRecordTrajectoryAnalytics(token,num,trajectoryId){
+  const trajectorybody = generateTrajectorybody(num,trajectoryId);
   const headers = buildHeaders(token);
   try {
     if (useAxios) {
@@ -455,7 +480,57 @@ export async function sendRecordTrajectoryAnalytics(token){
         throw new Error(`轨迹分析请求失败 (${response.status}): ${errorBody}`);
       }
     }
-    logger.info('轨迹分析发送成功');
+  } catch (error) {
+    throw error;
+  }
+}
+export async function sendLog(token,num,trajectoryId){
+  const Logbody = createTelemetryBatch(num,trajectoryId);
+  const serializeData = serializeTelemetryBatch(Logbody);
+  const serializeLogBody = serializeData.data;
+  const headers = buildHeaders(token);
+  headers["Host"] = "play.googleapis.com";
+  headers["User-Agent"] = "Go-http-client/1.1";
+  headers["Content-Type"] = "application/octet-stream";
+  headers["Accept-Encoding"] = "gzip";
+  try {
+    if (useAxios) {
+      await httpRequest({
+        method: 'POST',
+        url: "https://play.googleapis.com/log",
+        headers,
+        data: serializeLogBody
+      });
+    } else {
+      const response = await requester.antigravity_fetch("https://play.googleapis.com/log", buildRequesterConfig(headers, serializeLogBody));
+      if (response.status !== 200) {
+        const errorBody = await response.text();
+        throw new Error(`log请求失败 (${response.status}): ${errorBody}`);
+      }
+    }
+  } catch (error) {
+    throw error;
+  }
+}
+
+export async function sendRecordCodeAssistMetrics(token, trajectoryId){
+  const requestBody = buildRecordCodeAssistMetricsBody(token, trajectoryId);
+  const headers = buildHeaders(token);
+  try {
+    if (useAxios) {
+      await httpRequest({
+        method: 'POST',
+        url: "https://daily-cloudcode-pa.googleapis.com/v1internal:recordCodeAssistMetrics",
+        headers,
+        data: requestBody
+      });
+    } else {
+      const response = await requester.antigravity_fetch("https://daily-cloudcode-pa.googleapis.com/v1internal:recordCodeAssistMetrics", buildRequesterConfig(headers, requestBody));
+      if (response.status !== 200) {
+        const errorBody = await response.text();
+        throw new Error(`RecordCodeAssistMetrics请求失败 (${response.status}): ${errorBody}`);
+      }
+    }
   } catch (error) {
     throw error;
   }
