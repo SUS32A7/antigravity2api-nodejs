@@ -557,6 +557,9 @@ export async function sendLog(token, num, trajectoryId, conversationId,messageId
   try {
     for (const log of logs) {
       const serializeData = serializeTelemetryBatch(log);
+      if (!serializeData.success) {
+        throw new Error(`Telemetry proto 序列化失败: ${serializeData.error}`);
+      }
       const serializeLogBody = serializeData.data;
       headers["Content-Length"] = String(serializeLogBody.length);
       
